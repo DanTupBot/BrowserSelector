@@ -1,0 +1,71 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build Release (net20 / XP-compatible)
+        run: dotnet build DanTup.BrowserSelector.sln --configuration Release
+
+      - name: Verify PE headers and --create smoke test
+        shell: pwsh
+        run: |
+          $outDir = "DanTup.BrowserSelector/bin/Release/net20"
+          $exePath = Join-Path $outDir "BrowserSelector.exe"
+          $configPath = Join-Path $outDir "BrowserSelector.exe.config"
+          $iniPath = Join-Path $outDir "BrowserSelector.ini"
+
+          foreach ($path in @($exePath, $configPath, $iniPath)) {
+            if (-not (Test-Path $path)) {
+              throw "Missing build output: $path"
+            }
+          }
+
+          $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $exePath))
+          $eLfanew = [BitConverter]::ToInt32($bytes, 0x3C)
+          $machine = [BitConverter]::ToUInt16($bytes, $eLfanew + 4)
+          $optOff = $eLfanew + 24
+          $magic = [BitConverter]::ToUInt16($bytes, $optOff)
+          $subMaj = [BitConverter]::ToUInt16($bytes, $optOff + 48)
+          $subMin = [BitConverter]::ToUInt16($bytes, $optOff + 50)
+          $dllChars = [BitConverter]::ToUInt16($bytes, $optOff + 70)
+
+          Write-Host ("Machine=0x{0:X4} Magic=0x{1:X4} SubsystemVersion={2}.{3:D2} DllCharacteristics=0x{4:X4}" -f $machine, $magic, $subMaj, $subMin, $dllChars)
+
+          if ($machine -ne 0x014C) { throw "Expected x86 PE Machine 0x014C, got 0x$($machine.ToString('X4'))" }
+          if ($magic -ne 0x010B) { throw "Expected PE32 Magic 0x010B, got 0x$($magic.ToString('X4'))" }
+          if (-not ($subMaj -lt 5 -or ($subMaj -eq 5 -and $subMin -le 1))) {
+            throw "Expected SubsystemVersion <= 5.01 for Windows XP compatibility, got $subMaj.$subMin"
+          }
+          if (($dllChars -band 0x0020) -ne 0) {
+            throw "HIGH_ENTROPY_VA (0x0020) must not be set in DllCharacteristics"
+          }
+
+          $tmp = Join-Path $env:RUNNER_TEMP "bs-smoke"
+          New-Item -ItemType Directory -Force -Path $tmp | Out-Null
+          Copy-Item $exePath $tmp
+          Copy-Item $configPath $tmp
+
+          $proc = Start-Process -FilePath (Join-Path $tmp "BrowserSelector.exe") -ArgumentList "--create" -Wait -PassThru
+          if ($proc.ExitCode -ne 0) {
+            throw "BrowserSelector.exe --create exited with code $($proc.ExitCode)"
+          }
+          if (-not (Test-Path (Join-Path $tmp "BrowserSelector.ini"))) {
+            throw "BrowserSelector.exe --create did not create BrowserSelector.ini"
+          }
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: BrowserSelector
+          path: |
+            DanTup.BrowserSelector/bin/Release/net20/BrowserSelector.exe
+            DanTup.BrowserSelector/bin/Release/net20/BrowserSelector.exe.config
+            DanTup.BrowserSelector/bin/Release/net20/BrowserSelector.ini
