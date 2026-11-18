@@ -1,14 +1,48 @@
-> NOTE: This software is not being actively developed or maintained. Some fork (such as [slater1/BrowseRouter](https://github.com/slater1/BrowseRouter) may be more up-to-date).
+> NOTE: This is an unofficial, unmaintained fork of [DanTup/BrowserSelector](https://github.com/DanTup/BrowserSelector) (which is archived/unmaintained; forks such as [slater1/BrowseRouter](https://github.com/slater1/BrowseRouter) may be more up-to-date for modern Windows).
 
-# Browser Selector [![Build status](https://ci.appveyor.com/api/projects/status/github/DanTup/BrowserSelector?svg=true)](https://ci.appveyor.com/project/DanTup/browserselector)
+# Browser Selector [![Build](https://github.com/DanTupBot/BrowserSelector/actions/workflows/build.yml/badge.svg)](https://github.com/DanTupBot/BrowserSelector/actions/workflows/build.yml)
 
 Small utility to launch a different browser depending on the domain of the url being launched.
 
 > **[Read the blog post about this here](http://blog.dantup.com/2015/09/simple-windows-browser-selector/)**.
 
-## Setting Up
+## Windows XP Build (Unofficial Fork)
 
-1. Grab the [latest release](https://github.com/DanTup/BrowserSelector/releases) and extract to a folder somewhere on your PC.
+This fork was created in response to a [blog comment](https://blog.dantup.com/2015/09/simple-windows-browser-selector/#comment-6960676999) about the original `0.3.0.0` release failing on 32-bit Windows XP SP3 with `"Not a valid Win32 application"`.
+
+Compared to the upstream `0.3.0.0` release (which targeted `.NET Framework 4.5` and PE `SubsystemVersion 6.0`), this fork:
+- Targets **`.NET Framework 2.0`** (`net20`) with PE **`SubsystemVersion 5.01`**, `Prefer32Bit=false`, and `HighEntropyVA=false` via [`.github/workflows/build.yml`](.github/workflows/build.yml).
+- Includes an `App.config` (`BrowserSelector.exe.config`) supporting both CLR `v4.0` and `v2.0.50727` so the same binary can run under `.NET 2.0–3.5` or `.NET 4.0` on Windows XP (and `.NET 4.x` on newer Windows).
+- Updates registry handling in [`RegistrySettings.cs`](DanTup.BrowserSelector/RegistrySettings.cs) for Windows XP (`Clients\StartMenuInternet` and `http`/`https`/`ftp` protocol handlers).
+
+> **Note:** Although GitHub Actions verifies the build output PE headers and `--create` command on `windows-latest`, this fork has **not** been tested on a real Windows XP machine and is provided as-is without support.
+
+### Downloading the Build
+
+1. Open the **[GitHub Actions Build runs](https://github.com/DanTupBot/BrowserSelector/actions/workflows/build.yml)** page, click the latest green run on `master`, and download the **`BrowserSelector`** zip under **Artifacts** at the bottom of the run page *(requires signing in to GitHub)*.
+2. Alternatively, you can download the latest `master` workflow artifact directly without signing in via **[`nightly.link`](https://nightly.link/DanTupBot/BrowserSelector/workflows/build/master/BrowserSelector.zip)**.
+
+### Running on Windows XP (32-bit)
+
+1. **Prerequisite:** Ensure **.NET Framework 2.0** (or `3.0` / `3.5`) or **.NET Framework 4.0** is installed on Windows XP SP3.
+2. **Extract all three files** (`BrowserSelector.exe`, `BrowserSelector.exe.config`, and `BrowserSelector.ini`) into the same folder (for example `C:\BrowserSelector`). Keep `BrowserSelector.exe.config` alongside `BrowserSelector.exe` (it is required when running on `.NET 4.0`).
+3. **Configure:** Edit `BrowserSelector.ini` in Notepad so browser paths match your 32-bit XP installation (`C:\Program Files\...` rather than `C:\Program Files (x86)\...`), and remove or replace the `edge` entry.
+4. **Test before registering:** Open Command Prompt (`Start` -> `Run` -> `cmd`) and test launching a URL directly:
+   ```bat
+   C:\BrowserSelector\BrowserSelector.exe "http://example.org/"
+   ```
+5. **Register / Unregister:** From an Administrator account, run:
+   ```bat
+   C:\BrowserSelector\BrowserSelector.exe --register
+   ```
+   This registers `BrowserSelector` under *Set Program Access and Defaults* (`Clients\StartMenuInternet`) and associates `http`, `https`, and `ftp` links on Windows XP. To revert back to Internet Explorer (`IEXPLORE.EXE`) and remove the registration, run:
+   ```bat
+   C:\BrowserSelector\BrowserSelector.exe --unregister
+   ```
+
+## Setting Up (Windows 8.1 / 10+)
+
+1. Grab the [latest upstream release](https://github.com/DanTup/BrowserSelector/releases) (or the build from this fork's [GitHub Actions](https://github.com/DanTupBot/BrowserSelector/actions/workflows/build.yml)) and extract to a folder somewhere on your PC.
 2. Open the BrowserSelector.ini file and customise paths to your browsers and domain patterns (see below).
 3. Run `BrowserSelector.exe --register` from this folder to register the tool in Windows as a web browser.
 4. Open the "Choose a default browser" screen in Windows (you can simply search for "default browser" from the start screen).
